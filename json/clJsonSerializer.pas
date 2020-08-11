@@ -38,9 +38,8 @@ type
       var ARequiredAttr: TclJsonRequiredAttribute);
     function GetObjectClass(ATypeNameAttrs: TclJsonTypeNameMapAttributeList; AJsonObject: TclJSONObject): TRttiType;
 
-    procedure SerializeArray(AProperty: TRttiProperty; AObject: TObject;
-      Attribute: TclJsonPropertyAttribute; AJson: TclJsonObject);
-    procedure DeserializeArray(var rValue: TValue; AJsonArray: TclJSONArray);
+    procedure SerializeArray(var rValue: TValue; Attribute: TclJsonPropertyAttribute; AJson: TclJsonObject; const IsDynamic: Boolean);
+    procedure DeserializeArray(var rValue: TValue; AJsonArray: TclJSONArray; const IsDynamic: Boolean);
 
     function Deserialize(AType: TClass; const AJson: TclJSONObject): TObject; overload;
     function Deserialize(AObject: TObject; const AJson: TclJSONObject): TObject; overload;
@@ -124,13 +123,14 @@ begin
 
     for rProp in rType.GetProperties() do
       case rProp.PropertyType.TypeKind of
-        tkDynArray:
+        tkArray, tkDynArray:
         begin
           rValue := rProp.GetValue(Self);
           if not rValue.IsEmpty then
           begin
             FreeAndNilArray(rValue);
-            rProp.SetValue(Self, nil);
+            if rProp.PropertyType.TypeKind = tkDynArray then
+              rProp.SetValue(Self, nil);
           end;
         end;
 
@@ -181,7 +181,7 @@ begin
   end;
 end;
 
-procedure TclJsonSerializer.DeserializeArray(var rValue: TValue; AJsonArray: TclJSONArray);
+procedure TclJsonSerializer.DeserializeArray(var rValue: TValue; AJsonArray: TclJSONArray; const IsDynamic: Boolean);
 var
   elType: PTypeInfo;
   len: NativeInt;  // using NativeInt for work in x32/x64 platforms
@@ -240,11 +240,13 @@ begin
             DynArraySetLength(pArrItem, elType, 1, @len);
             try
               TValue.Make(@pArrItem, elType, rItemValue);
-              DeserializeArray(rItemValue, TclJSONArray(AJsonArray.Items[i]));
+              DeserializeArray(rItemValue, TclJSONArray(AJsonArray.Items[i]), True);
             finally
               DynArrayClear(pArrItem, elType);
             end;
           end;
+
+        //tkArray: ;
 
         else
           raise EclJsonSerializerError.Create(cUnsupportedDataType);
@@ -365,11 +367,11 @@ begin
         if (member = nil) then Continue;
 
         case rProp.PropertyType.TypeKind of
-          tkDynArray:
+          tkArray, tkDynArray:
             if (member.Value is TclJSONArray) then
             begin
               rValue := rProp.GetValue(Result);
-              DeserializeArray(rValue, TclJSONArray(member.Value));
+              DeserializeArray(rValue, TclJSONArray(member.Value), rProp.PropertyType.TypeKind = tkDynArray);
               rProp.SetValue(Result, rValue);
             end;
 
@@ -481,6 +483,7 @@ var
   nonSerializable: Boolean;
   requiredAttr: TclJsonRequiredAttribute;
   propAttr: TclJsonPropertyAttribute;
+  rValue: TValue;
 begin
   if (AObject = nil) then
   begin
@@ -502,8 +505,11 @@ begin
           nonSerializable := False;
 
           case rProp.PropertyType.TypeKind of
-            tkDynArray:
-              SerializeArray(rProp, AObject, TclJsonPropertyAttribute(propAttr), Result);
+            tkArray, tkDynArray:
+            begin
+              rValue := rProp.GetValue(AObject);
+              SerializeArray(rValue, TclJsonPropertyAttribute(propAttr), Result, rProp.PropertyType.TypeKind = tkDynArray);
+            end;
 
             tkClass:
               Result.AddMember(TclJsonPropertyAttribute(propAttr).Name, Serialize(rProp.GetValue(AObject).AsObject()));
@@ -544,17 +550,15 @@ begin
 end;
 
 procedure TclJsonSerializer.SerializeArray(
-  AProperty: TRttiProperty;
-  AObject: TObject;
+  var rValue: TValue;
   Attribute: TclJsonPropertyAttribute;
-  AJson: TclJsonObject);
+  AJson: TclJsonObject;
+  const IsDynamic: Boolean);
 var
-  rValue: TValue;
   i: Integer;
   arr: TclJSONArray;
+//  rItemValue: TValue;
 begin
-  rValue := AProperty.GetValue(AObject);
-
   if (rValue.GetArrayLength() > 0) then
   begin
     arr := TclJSONArray.Create();
@@ -582,6 +586,12 @@ begin
         tkEnumeration:
           if (rValue.GetArrayElement(i).TypeInfo = System.TypeInfo(Boolean)) then
             arr.Add(TclJSONBoolean.Create(rValue.GetArrayElement(i).AsBoolean()));
+
+//        tkArray, tkDynArray:
+//        begin
+//          rItemValue := TValue
+//          arr.Add(SerializeArray(rValue.GetArrayElement(i).AsObject()));
+//        end;
 
         else
           raise EclJsonSerializerError.Create(cUnsupportedDataType);

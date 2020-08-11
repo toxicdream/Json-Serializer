@@ -753,24 +753,24 @@ end;
 
 function TclJSONObject.AddBoolean(const AName: string; AValue: Boolean): TclJSONBoolean;
 begin
-  if (AValue) then
-  begin
+//  if (AValue) then
+//  begin
     Result := TclJSONBoolean(AddMember(AName, TclJSONBoolean.Create(AValue)));
-  end else
-  begin
-    Result := nil;
-  end;
+//  end else
+//  begin
+//    Result := nil;
+//  end;
 end;
 
 function TclJSONObject.AddBoolean(const AName: WideString; AValue: Boolean): TclJSONBoolean;
 begin
-  if (AValue) then
-  begin
+//  if (AValue) then
+//  begin
     Result := TclJSONBoolean(AddMember(AName, TclJSONBoolean.Create(AValue)));
-  end else
-  begin
-    Result := nil;
-  end;
+//  end else
+//  begin
+//    Result := nil;
+//  end;
 end;
 
 function TclJSONObject.AddMember(const AName: string; AValue: TclJSONBase): TclJSONPair;
