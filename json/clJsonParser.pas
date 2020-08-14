@@ -1212,7 +1212,7 @@ end;
 
 procedure TclJSONSingle.SetValue(const value: Single);
 begin
-  Self.ValueString := value.ToString;
+  Self.ValueString := FormatFloat('0.00##', value, TFormatSettings.Create($409));//value.ToString;
 end;
 
 constructor TclJSONSingle.Create;
