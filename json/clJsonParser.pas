@@ -229,7 +229,7 @@ const
   cUnexpectedDataTypeCode = -106;
 
 var
-   EscapeJsonStrings: Boolean = False;
+   EscapeJsonStrings: Boolean = True;
 
 implementation
 
@@ -1212,7 +1212,7 @@ end;
 
 procedure TclJSONSingle.SetValue(const value: Single);
 begin
-  Self.ValueString := FormatFloat('0.00##', value, TFormatSettings.Create($409));//value.ToString;
+  Self.ValueString := FloatToStr(value, TFormatSettings.Invariant);//value.ToString;
 end;
 
 constructor TclJSONSingle.Create;

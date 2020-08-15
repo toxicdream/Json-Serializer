@@ -195,14 +195,21 @@ begin
   len := AJsonArray.Count;
   if (len = 0) then Exit;
 
-  if rValue.TypeData.DynArrElType^ = nil then Exit;
-  elType := rValue.TypeData.DynArrElType^;
+  //rValue.GetArrayElement(i)
+  if IsDynamic then
+  begin
+    if rValue.TypeData.DynArrElType^ = nil then Exit;
+    elType := rValue.TypeData.DynArrElType^;
 
-  pArr := nil;
+    pArr := nil;
 
-  DynArraySetLength(pArr, rValue.TypeInfo, 1, @len);
-  try
+    DynArraySetLength(pArr, rValue.TypeInfo, 1, @len);
     TValue.Make(@pArr, rValue.TypeInfo, rValue);
+  end
+  else
+    elType := rValue.TypeData.ArrayData.ElType^;
+
+  try
 
     for i := 0 to AJsonArray.Count - 1 do
     begin
@@ -225,7 +232,7 @@ begin
           rItemValue := StrToInt64(AJsonArray.Items[i].ValueString);
 
         tkFloat:
-          rItemValue := StrToFloat(AJsonArray.Items[i].ValueString);
+          rItemValue := StrToFloat(AJsonArray.Items[i].ValueString, TFormatSettings.Invariant);
 
         tkEnumeration:
           if (elType = System.TypeInfo(Boolean)) and (AJsonArray.Items[i] is TclJSONBoolean) then begin
@@ -256,7 +263,8 @@ begin
     end;
 
   finally
-    DynArrayClear(pArr, rValue.TypeInfo);
+    if IsDynamic then
+      DynArrayClear(pArr, rValue.TypeInfo);
   end;
 end;
 
@@ -339,11 +347,11 @@ var
   rProp: TRttiProperty;
   member: TclJSONPair;
   rValue: TValue;
-  objClass: TClass;
+//  objClass: TClass;
   nonSerializable: Boolean;
   requiredAttr: TclJsonRequiredAttribute;
   propAttr: TclJsonPropertyAttribute;
-  xObject: TObject;
+//  xObject: TObject;
 begin
   Result := AObject;
 
@@ -377,19 +385,19 @@ begin
 
           tkClass:
             if (member.Value is TclJSONObject) then begin
-              objClass := rProp.PropertyType.Handle^.TypeData.ClassType;
-
-              // clean fields - old values of objects
+//              objClass := rProp.PropertyType.Handle^.TypeData.ClassType;
+//
+//              // clean fields - old values of objects
               rValue := rProp.GetValue(Result);
-              if not rValue.IsEmpty then
-              begin
-                xObject := rValue.AsObject;
-                FreeAndNil(xObject);
-                rProp.SetValue(Result, nil);
-              end;
-              //
+//              if not rValue.IsEmpty then
+//              begin
+//                xObject := rValue.AsObject;
+//                FreeAndNil(xObject);
+//                rProp.SetValue(Result, nil);
+//              end;
+//              //
 
-              rValue := Deserialize(objClass, TclJSONObject(member.Value));
+              rValue := Deserialize({objClass}rValue.AsObject, TclJSONObject(member.Value));
               rProp.SetValue(Result, rValue);
             end;
 
@@ -409,7 +417,7 @@ begin
           end;
 
           tkFloat: begin
-            rValue := StrToFloat(member.ValueString);
+            rValue := StrToFloat(member.ValueString, TFormatSettings.Invariant);
             rProp.SetValue(Result, rValue)
           end;
 
